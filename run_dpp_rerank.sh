@@ -25,9 +25,10 @@ do
     echo "----------------------------------------"
     echo "Processing ${DATA_NAME}..."
     
+    # Fall back to HF dataset name if local file is missing
     if [ ! -f "${INPUT_FILE}" ]; then
-        echo "Warning: Input file ${INPUT_FILE} not found. Skipping."
-        continue
+        echo "Local file ${INPUT_FILE} not found. Will fetch from Hugging Face dataset '${DATA_NAME}'..."
+        INPUT_FILE="${DATA_NAME}"
     fi
 
     # Run the reranker

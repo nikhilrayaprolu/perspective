@@ -248,6 +248,54 @@ def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data
             allow_patterns=["parquet/*"],
             local_dir=local_dir
         )
+def load_queries(data_path_or_repo):
+    """
+    Load queries and perspectives from either a local JSONL file or a Hugging Face dataset.
+    """
+    if os.path.exists(data_path_or_repo) and os.path.isfile(data_path_or_repo):
+        logger.info(f"Loading queries from local file: {data_path_or_repo}")
+        queries = []
+        with open(data_path_or_repo, 'r') as f:
+            for line in f:
+                queries.append(json.loads(line))
+        return queries
+
+    name_mapping = {
+        "arguana": "timchen0618/Arguana",
+        "arguana_generated": "timchen0618/Arguana",
+        "arguana_generated.jsonl": "timchen0618/Arguana",
+        "kialo": "timchen0618/Kialo",
+        "kialo.jsonl": "timchen0618/Kialo",
+        "opinionqa": "timchen0618/OpinionQA",
+        "opinionqa.jsonl": "timchen0618/OpinionQA"
+    }
+    
+    repo_id = data_path_or_repo
+    basename = os.path.basename(data_path_or_repo).lower()
+    if basename in name_mapping:
+        repo_id = name_mapping[basename]
+        
+    logger.info(f"Local file '{data_path_or_repo}' not found. Attempting to load from Hugging Face dataset '{repo_id}'...")
+    try:
+        from datasets import load_dataset
+        dataset = load_dataset(repo_id)
+        split = 'test' if 'test' in dataset else list(dataset.keys())[0]
+        logger.info(f"Successfully loaded HF dataset '{repo_id}' (using split '{split}').")
+        
+        queries = []
+        for row in dataset[split]:
+            queries.append({
+                "question": row.get("question", ""),
+                "perspectives": row.get("perspectives", []),
+                "ctxs": row.get("ctxs", [])
+            })
+        return queries
+    except Exception as e:
+        raise FileNotFoundError(
+            f"Could not load queries from path or Hugging Face repo '{data_path_or_repo}'. Error: {e}"
+        )
+
+
 def get_local_corpus_text(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wikipedia_qwen_4b"):
     """
     Load the Wikipedia text and title columns by streaming from Hugging Face (avoiding downloading embeddings)
@@ -323,11 +371,7 @@ def main():
         )
 
     # 2. Load BERDS query dataset
-    logger.info(f"Loading query dataset from '{args.data}'...")
-    if not os.path.exists(args.data):
-        raise FileNotFoundError(f"Input query file '{args.data}' does not exist.")
-    with open(args.data, 'r') as f:
-        queries_data = [json.loads(line) for line in f]
+    queries_data = load_queries(args.data)
     logger.info(f"Loaded {len(queries_data)} queries.")
 
     # 3. Load Wikipedia corpus texts and titles (avoiding downloading embeddings)

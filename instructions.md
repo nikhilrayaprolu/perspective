@@ -50,6 +50,7 @@ We provide two scripts to run the pipeline:
 This script runs the query embedding generation, queries the 1M article DiskANN index to retrieve candidates, dynamically encodes the candidates, constructs the DPP kernel, and selects the final documents.
 
 ```bash
+# You can pass a local JSONL file:
 python reranking/retrieve_and_dpp_qwen.py \
     --data ./Data/kialo/kialo.test.jsonl \
     --output_file ./outputs/kialo_dpp_wiki.jsonl \
@@ -62,10 +63,18 @@ python reranking/retrieve_and_dpp_qwen.py \
     --lambda_val 0.6 \
     --mode greedy \
     --device cuda
+
+# OR you can pass the Hugging Face dataset name directly:
+python reranking/retrieve_and_dpp_qwen.py \
+    --data kialo \
+    --output_file ./outputs/kialo_dpp_wiki.jsonl \
+    --download_data \
+    --local_wiki_dir ./data/wikipedia_qwen_4b \
+    --diskann_index_path ./data/wikipedia_qwen_4b/diskann
 ```
 
 ### Option B: Automated Benchmark Script
-You can run the automated bash script, which processes all three benchmark datasets (`Arguana`, `Kialo`, `OpinionQA`) and automatically evaluates the final diversity results:
+You can run the automated bash script, which processes all three benchmark datasets (`Arguana`, `Kialo`, `OpinionQA`) and automatically evaluates the final diversity results. It will look for local files first, and automatically fetch from Hugging Face if they are not present:
 
 ```bash
 # Make the script executable
@@ -79,6 +88,7 @@ chmod +x run_end_to_end_wiki.sh
 If you already have pre-retrieved candidate documents in a JSONL file under the `"ctxs"` field (e.g. from BM25 or Contriever) and only want to run the DPP reranking:
 
 ```bash
+# You can pass a local file:
 python reranking/dpp_rerank_qwen.py \
     --data /path/to/retrieval_outputs/wiki/bm25/kialo.jsonl \
     --output_file /path/to/retrieval_outputs/wiki/bm25/kialo_reranked.jsonl \
@@ -87,6 +97,12 @@ python reranking/dpp_rerank_qwen.py \
     --theta 2.0 \
     --lambda_val 0.5 \
     --mode greedy
+
+# OR pass the Hugging Face dataset name directly:
+python reranking/dpp_rerank_qwen.py \
+    --data kialo \
+    --output_file ./outputs/kialo_reranked.jsonl \
+    --model_name Qwen/Qwen3-Embedding-0.6B
 ```
 
 ---
