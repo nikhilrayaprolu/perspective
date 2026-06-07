@@ -242,11 +242,11 @@ def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data
     os.makedirs(local_dir, exist_ok=True)
     
     if download_index:
-        logger.info(f"Downloading DiskANN index files (variant '{index_variant}') from HF repo '{repo_id}' to '{local_dir}'...")
+        logger.info(f"Downloading DiskANN index files from HF repo '{repo_id}' to '{local_dir}'...")
         snapshot_download(
             repo_id=repo_id,
             repo_type="dataset",
-            allow_patterns=[f"diskann/{index_variant}_*"],
+            allow_patterns=["diskann/*"],
             local_dir=local_dir
         )
     else:
@@ -395,13 +395,28 @@ def main():
     
     # 4. Load DiskANN search index
     if not args.diskann_index_path:
-        # Guess default path inside the local folder using the variant
-        args.diskann_index_path = os.path.join(args.local_wiki_dir, "diskann", args.index_variant)
-    elif os.path.isdir(args.diskann_index_path) and args.index_variant not in args.diskann_index_path:
-        potential_path = os.path.join(args.diskann_index_path, args.index_variant)
-        if os.path.isdir(potential_path):
-            logger.info(f"Auto-resolving index path: Appending variant subfolder '{args.index_variant}' to provided path.")
-            args.diskann_index_path = potential_path
+        args.diskann_index_path = os.path.join(args.local_wiki_dir, "diskann")
+    
+    if os.path.isdir(args.diskann_index_path):
+        # If the directory contains a 'diskann' subfolder, use it
+        sub_diskann = os.path.join(args.diskann_index_path, "diskann")
+        target_dir = sub_diskann if os.path.isdir(sub_diskann) else args.diskann_index_path
+        
+        # Look for files ending with '_disk.index' to determine the prefix
+        index_files = [f for f in os.listdir(target_dir) if f.endswith("_disk.index")]
+        if index_files:
+            chosen_file = index_files[0]
+            # Prioritize matching the specified index variant
+            for f in index_files:
+                if args.index_variant in f:
+                    chosen_file = f
+                    break
+            prefix_name = chosen_file[:-11]  # strip '_disk.index' (11 chars)
+            args.diskann_index_path = os.path.join(target_dir, prefix_name)
+            logger.info(f"Auto-resolved DiskANN index prefix path to: {args.diskann_index_path}")
+        else:
+            # Fallback guessing if directory is empty or no _disk.index matches yet
+            args.diskann_index_path = os.path.join(target_dir, args.index_variant)
     vector_index = VectorIndex(
         diskann_path=args.diskann_index_path, 
         dimension=2560,
