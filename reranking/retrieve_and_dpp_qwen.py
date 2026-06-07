@@ -307,41 +307,36 @@ def load_queries(data_path_or_repo):
 
 def get_local_corpus_text(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wikipedia_qwen_4b"):
     """
-    Load the Wikipedia text and title columns by streaming from Hugging Face (avoiding downloading embeddings)
-    and cache them locally in a simple JSONL file for extremely fast random-access lookups.
+    Load the Wikipedia text column by streaming from Hugging Face (avoiding downloading embeddings)
+    and cache it locally in a simple JSONL file for extremely fast random-access lookups.
     """
     corpus_cache_file = os.path.join(local_dir, "corpus_text.jsonl")
     if os.path.exists(corpus_cache_file):
         logger.info(f"Loading cached corpus texts from {corpus_cache_file}...")
         texts = []
-        titles = []
         with open(corpus_cache_file, 'r') as f:
             for line in f:
                 data = json.loads(line)
                 texts.append(data.get('text', ''))
-                titles.append(data.get('title', ''))
-        return texts, titles
+        return texts, None
 
-    logger.info(f"Local corpus text cache not found. Streaming text and title columns from HF repo '{repo_id}' (this avoids downloading massive embedding files)...")
+    logger.info(f"Local corpus text cache not found. Streaming text column from HF repo '{repo_id}' (this avoids downloading massive embedding files)...")
     from datasets import load_dataset
-    # Load dataset in streaming mode, selecting only 'text' and 'title' columns
-    streamed_ds = load_dataset(repo_id, split="train", columns=["text", "title"], streaming=True)
+    # Load dataset in streaming mode, selecting only 'text' column
+    streamed_ds = load_dataset(repo_id, split="train", columns=["text"], streaming=True)
     
     texts = []
-    titles = []
-    logger.info("Caching texts and titles locally to corpus_text.jsonl...")
+    logger.info("Caching texts locally to corpus_text.jsonl...")
     with open(corpus_cache_file, 'w') as f:
         for idx, row in enumerate(streamed_ds):
             text = row.get("text", "")
-            title = row.get("title", "")
             texts.append(text)
-            titles.append(title)
-            f.write(json.dumps({"text": text, "title": title}) + "\n")
+            f.write(json.dumps({"text": text}) + "\n")
             if (idx + 1) % 100000 == 0:
                 logger.info(f"Cached {idx + 1} documents...")
                 
     logger.info(f"Successfully cached {len(texts)} documents to {corpus_cache_file}.")
-    return texts, titles
+    return texts, None
 
 
 def main():
