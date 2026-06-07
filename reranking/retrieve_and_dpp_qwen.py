@@ -14,6 +14,9 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %H:%M:%S',
     level=logging.INFO
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("fsspec").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 import diskannpy as dap
@@ -329,20 +332,17 @@ def get_local_corpus_text(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wi
                 texts.append(data.get('text', ''))
         return texts, None
 
-    logger.info(f"Local corpus text cache not found. Streaming text column from HF repo '{repo_id}' (this avoids downloading massive embedding files)...")
+    logger.info(f"Local corpus text cache not found. Downloading Parquet text column from HF repo '{repo_id}'...")
     from datasets import load_dataset
-    # Load dataset in streaming mode, selecting only 'text' column
-    streamed_ds = load_dataset(repo_id, split="train", columns=["text"], streaming=True)
+    # Load dataset with streaming=False, selecting only the 'text' column.
+    # This downloads the single base.parquet file all at once.
+    ds = load_dataset(repo_id, split="train", columns=["text"])
     
-    texts = []
+    texts = ds["text"]
     logger.info("Caching texts locally to corpus_text.jsonl...")
     with open(corpus_cache_file, 'w') as f:
-        for idx, row in enumerate(streamed_ds):
-            text = row.get("text", "")
-            texts.append(text)
+        for text in texts:
             f.write(json.dumps({"text": text}) + "\n")
-            if (idx + 1) % 100000 == 0:
-                logger.info(f"Cached {idx + 1} documents...")
                 
     logger.info(f"Successfully cached {len(texts)} documents to {corpus_cache_file}.")
     return texts, None
