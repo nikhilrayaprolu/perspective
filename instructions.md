@@ -30,13 +30,13 @@ pip install diskannpy
 
 ---
 
-## 2. Dataset and Corpus Download
+## 2. Dataset and Corpus Download (Bandwidth Optimized)
 
-The pipeline uses the **`maknee/wikipedia_qwen_4b`** dataset on Hugging Face. This dataset contains:
-1. **`base` split**: 1,000,000 Wikipedia articles with pre-computed 2560-dimensional embeddings.
-2. **`diskann` directory**: Pre-built DiskANN index files (`index_*.index`, `gt_*.fbin`, etc.).
+The pipeline is fully optimized to **avoid downloading the massive 10GB+ database embedding files** from the `maknee/wikipedia_qwen_4b` repository. Instead, it downloads only the necessary files:
 
-The scripts will **automatically download** these files when you run them with the `--download_data` flag, so you do not need to download them manually.
+1. **DiskANN Index Directory** (via `--download_data` flag): Downloads only the native pre-built DiskANN index files (`diskann/*`), which are extremely fast and lightweight.
+2. **Text Corpus Streaming**: On the first run, the script streams **only the `text` and `title` columns** from the Hugging Face parquet dataset (completely skipping the 10GB embedding column) and caches it locally as a lightweight JSONL file (`corpus_text.jsonl`, ~550 MB).
+3. **Dynamic Candidate Encoding**: During the query search, only the top candidate documents (default: 100 candidates) are dynamically encoded on the GPU using your query embedder. This takes a fraction of a second and eliminates the need to download 1M pre-computed database vectors.
 
 ---
 
@@ -47,7 +47,7 @@ We provide two scripts to run the pipeline:
 2. **Stage 2 Rerank Only** (`reranking/dpp_rerank_qwen.py`)
 
 ### Option A: End-to-End Wikipedia Search and Rerank (Recommended)
-This script runs the query embedding generation, queries the 1M article DiskANN index to retrieve candidates, fetches their pre-computed embeddings, constructs the DPP kernel, and selects the final documents.
+This script runs the query embedding generation, queries the 1M article DiskANN index to retrieve candidates, dynamically encodes the candidates, constructs the DPP kernel, and selects the final documents.
 
 ```bash
 python reranking/retrieve_and_dpp_qwen.py \

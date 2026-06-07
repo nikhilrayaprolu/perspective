@@ -246,6 +246,43 @@ def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data
             allow_patterns=["parquet/*"],
             local_dir=local_dir
         )
+def get_local_corpus_text(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wikipedia_qwen_4b"):
+    """
+    Load the Wikipedia text and title columns by streaming from Hugging Face (avoiding downloading embeddings)
+    and cache them locally in a simple JSONL file for extremely fast random-access lookups.
+    """
+    corpus_cache_file = os.path.join(local_dir, "corpus_text.jsonl")
+    if os.path.exists(corpus_cache_file):
+        logger.info(f"Loading cached corpus texts from {corpus_cache_file}...")
+        texts = []
+        titles = []
+        with open(corpus_cache_file, 'r') as f:
+            for line in f:
+                data = json.loads(line)
+                texts.append(data.get('text', ''))
+                titles.append(data.get('title', ''))
+        return texts, titles
+
+    logger.info(f"Local corpus text cache not found. Streaming text and title columns from HF repo '{repo_id}' (this avoids downloading massive embedding files)...")
+    from datasets import load_dataset
+    # Load dataset in streaming mode, selecting only 'text' and 'title' columns
+    streamed_ds = load_dataset(repo_id, split="base", columns=["text", "title"], streaming=True)
+    
+    texts = []
+    titles = []
+    logger.info("Caching texts and titles locally to corpus_text.jsonl...")
+    with open(corpus_cache_file, 'w') as f:
+        for idx, row in enumerate(streamed_ds):
+            text = row.get("text", "")
+            title = row.get("title", "")
+            texts.append(text)
+            titles.append(title)
+            f.write(json.dumps({"text": text, "title": title}) + "\n")
+            if (idx + 1) % 100000 == 0:
+                logger.info(f"Cached {idx + 1} documents...")
+                
+    logger.info(f"Successfully cached {len(texts)} documents to {corpus_cache_file}.")
+    return texts, titles
 
 
 def main():
@@ -285,16 +322,8 @@ def main():
         queries_data = [json.loads(line) for line in f]
     logger.info(f"Loaded {len(queries_data)} queries.")
 
-    # 3. Load Wikipedia corpus and pre-computed embeddings
-    logger.info("Loading Wikipedia text and embeddings from Hugging Face dataset...")
-    # Using datasets to load the cached/downloaded parquet files
-    from datasets import load_dataset
-    dataset = load_dataset(args.wiki_repo_id, cache_dir=args.local_wiki_dir)
-    base_data = dataset['base']
-    
-    logger.info("Extracting corpus fields...")
-    corpus_texts = base_data['text']
-    corpus_titles = base_data['title'] if 'title' in base_data.column_names else None
+    # 3. Load Wikipedia corpus texts and titles (avoiding downloading embeddings)
+    corpus_texts, corpus_titles = get_local_corpus_text(args.wiki_repo_id, args.local_wiki_dir)
     
     # 4. Load DiskANN search index
     if not args.diskann_index_path:
@@ -329,12 +358,9 @@ def main():
         candidate_texts = [corpus_texts[int(i)] for i in candidate_indices]
         candidate_titles = [corpus_titles[int(i)] for i in candidate_indices] if corpus_titles else [f"Doc_{i}" for i in candidate_indices]
         
-        # Extract candidate document embeddings from base_data
-        # Since DiskANN doesn't store in-memory embeddings after search, we look up in base_data
-        candidate_embs = np.array(base_data[candidate_indices.tolist()]['embedding']).astype('float32')
-        norms = np.linalg.norm(candidate_embs, axis=1, keepdims=True)
-        norms = np.where(norms == 0, 1e-10, norms)
-        candidate_embs = candidate_embs / norms
+        # Dynamically compute candidate document embeddings from candidate_texts
+        # (This is fast for stage1_k=100 and avoids downloading the 10GB+ database embeddings)
+        candidate_embs = embedding_model.embed_texts(candidate_texts, is_query=False, batch_size=32)
 
         # Step D: Compute document content similarity matrix S_doc_sim (N x N)
         S_doc_sim = candidate_embs @ candidate_embs.T
