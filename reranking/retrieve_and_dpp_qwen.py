@@ -364,7 +364,7 @@ def main():
     parser.add_argument("--index_variant", type=str, default="index_32_100_320", help="Specific DiskANN index variant to download/use (e.g., index_32_100_320, index_32_100_640)")
     parser.add_argument("--diskann_threads", type=int, default=16, help="Number of threads for DiskANN index search")
     parser.add_argument("--diskann_nodes_to_cache", type=int, default=10000, help="Number of index nodes to cache in memory")
-    parser.add_argument("--diskann_metric", type=str, default="cosine", choices=["l2", "mips", "cosine"], help="Distance metric used for DiskANN index")
+    parser.add_argument("--diskann_metric", type=str, default="l2", choices=["l2", "mips", "cosine"], help="Distance metric used for DiskANN index")
     
     parser.add_argument("--stage1_k", type=int, default=100, help="Number of candidate documents to retrieve in Stage 1")
     parser.add_argument("--topk", type=int, default=5, help="Number of diverse documents to output in the final set")
