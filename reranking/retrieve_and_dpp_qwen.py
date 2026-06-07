@@ -109,7 +109,7 @@ class Qwen3Embedding:
                 outputs = self.model(**batch_dict)
                 embeddings = self.last_token_pool(outputs.last_hidden_state, batch_dict['attention_mask'])
                 embeddings = F.normalize(embeddings, p=2, dim=1)
-                embeddings_list.append(embeddings.cpu().numpy())
+                embeddings_list.append(embeddings.float().cpu().numpy())
                 
             return np.concatenate(embeddings_list, axis=0)
 
