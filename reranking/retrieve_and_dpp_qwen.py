@@ -236,6 +236,7 @@ def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data
         logger.info(f"Downloading DiskANN index files from HF repo '{repo_id}' to '{local_dir}'...")
         snapshot_download(
             repo_id=repo_id,
+            repo_type="dataset",
             allow_patterns=["diskann/*"],
             local_dir=local_dir
         )
@@ -243,6 +244,7 @@ def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data
         logger.info(f"Downloading Parquet base files from HF repo '{repo_id}' to '{local_dir}'...")
         snapshot_download(
             repo_id=repo_id,
+            repo_type="dataset",
             allow_patterns=["parquet/*"],
             local_dir=local_dir
         )
