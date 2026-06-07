@@ -122,7 +122,8 @@ class VectorIndex:
         self.dimension = dimension
         logger.info(f"Loading DiskANN index from: {diskann_path} (metric={distance_metric}, dim={dimension}) with {num_threads} threads, caching {num_nodes_to_cache} nodes")
         self.index = dap.StaticDiskIndex(
-            index_directory=diskann_path,
+            index_directory=os.path.dirname(diskann_path),
+            index_prefix=os.path.basename(diskann_path),
             num_threads=num_threads,
             num_nodes_to_cache=num_nodes_to_cache,
             distance_metric=distance_metric,
