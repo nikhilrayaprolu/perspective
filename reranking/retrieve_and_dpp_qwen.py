@@ -226,18 +226,18 @@ def dpp_sample(L, k=None):
     return sampled_items
 
 
-def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wikipedia_qwen_4b", download_index=False):
+def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wikipedia_qwen_4b", download_index=False, index_variant="index_32_100_320"):
     """
     Download Parquet and/or DiskANN index files from Hugging Face.
     """
     os.makedirs(local_dir, exist_ok=True)
     
     if download_index:
-        logger.info(f"Downloading DiskANN index files from HF repo '{repo_id}' to '{local_dir}'...")
+        logger.info(f"Downloading DiskANN index files (variant '{index_variant}') from HF repo '{repo_id}' to '{local_dir}'...")
         snapshot_download(
             repo_id=repo_id,
             repo_type="dataset",
-            allow_patterns=["diskann/*"],
+            allow_patterns=[f"diskann/{index_variant}_*"],
             local_dir=local_dir
         )
     else:
@@ -300,6 +300,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to run query inference on")
     
     parser.add_argument("--diskann_index_path", type=str, default=None, help="Path to DiskANN index files")
+    parser.add_argument("--index_variant", type=str, default="index_32_100_320", help="Specific DiskANN index variant to download/use (e.g., index_32_100_320, index_32_100_640)")
     
     parser.add_argument("--stage1_k", type=int, default=100, help="Number of candidate documents to retrieve in Stage 1")
     parser.add_argument("--topk", type=int, default=5, help="Number of diverse documents to output in the final set")
@@ -314,7 +315,12 @@ def main():
 
     # 1. Download data if requested
     if args.download_data:
-        download_wiki_embeddings(repo_id=args.wiki_repo_id, local_dir=args.local_wiki_dir, download_index=True)
+        download_wiki_embeddings(
+            repo_id=args.wiki_repo_id,
+            local_dir=args.local_wiki_dir,
+            download_index=True,
+            index_variant=args.index_variant
+        )
 
     # 2. Load BERDS query dataset
     logger.info(f"Loading query dataset from '{args.data}'...")
@@ -329,8 +335,8 @@ def main():
     
     # 4. Load DiskANN search index
     if not args.diskann_index_path:
-        # Guess default path inside the local folder
-        args.diskann_index_path = os.path.join(args.local_wiki_dir, "diskann")
+        # Guess default path inside the local folder using the variant
+        args.diskann_index_path = os.path.join(args.local_wiki_dir, "diskann", args.index_variant)
     vector_index = VectorIndex(diskann_path=args.diskann_index_path, dimension=2560)
 
     # 5. Initialize Query Embedder
