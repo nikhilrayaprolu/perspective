@@ -397,6 +397,11 @@ def main():
     if not args.diskann_index_path:
         # Guess default path inside the local folder using the variant
         args.diskann_index_path = os.path.join(args.local_wiki_dir, "diskann", args.index_variant)
+    elif os.path.isdir(args.diskann_index_path) and args.index_variant not in args.diskann_index_path:
+        potential_path = os.path.join(args.diskann_index_path, args.index_variant)
+        if os.path.isdir(potential_path):
+            logger.info(f"Auto-resolving index path: Appending variant subfolder '{args.index_variant}' to provided path.")
+            args.diskann_index_path = potential_path
     vector_index = VectorIndex(
         diskann_path=args.diskann_index_path, 
         dimension=2560,
