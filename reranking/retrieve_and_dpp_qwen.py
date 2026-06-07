@@ -242,11 +242,11 @@ def download_wiki_embeddings(repo_id="maknee/wikipedia_qwen_4b", local_dir="data
     os.makedirs(local_dir, exist_ok=True)
     
     if download_index:
-        logger.info(f"Downloading DiskANN index files from HF repo '{repo_id}' to '{local_dir}'...")
+        logger.info(f"Downloading DiskANN index files (variant '{index_variant}') from HF repo '{repo_id}' to '{local_dir}'...")
         snapshot_download(
             repo_id=repo_id,
             repo_type="dataset",
-            allow_patterns=["diskann/*"],
+            allow_patterns=[f"diskann/{index_variant}_*"],
             local_dir=local_dir
         )
     else:
