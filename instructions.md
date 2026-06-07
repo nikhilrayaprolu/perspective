@@ -35,7 +35,7 @@ pip install diskannpy
 The pipeline is fully optimized to **avoid downloading the massive 10GB+ database embedding files** from the `maknee/wikipedia_qwen_4b` repository. Instead, it downloads only the necessary files:
 
 1. **DiskANN Index Directory** (via `--download_data` flag): Downloads only the native pre-built DiskANN index files (`diskann/*`), which are extremely fast and lightweight.
-2. **Text Corpus Streaming**: On the first run, the script streams **only the `text` and `title` columns** from the Hugging Face parquet dataset (completely skipping the 10GB embedding column) and caches it locally as a lightweight JSONL file (`corpus_text.jsonl`, ~550 MB).
+2. **Memory-Mapped Parquet Loading**: On the first run, the script downloads the single `base.parquet` file (storing the text column) directly from Hugging Face. When iterating and searching, it leverages memory mapping (`mmap`) under Arrow, allowing instant random-access lookups with zero disk overhead and near-zero RAM footprint.
 3. **Dynamic Candidate Encoding**: During the query search, only the top candidate documents (default: 100 candidates) are dynamically encoded on the GPU using your query embedder. This takes a fraction of a second and eliminates the need to download 1M pre-computed database vectors.
 
 ---

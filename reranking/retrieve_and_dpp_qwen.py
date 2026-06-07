@@ -320,33 +320,14 @@ def load_queries(data_path_or_repo):
 
 def get_local_corpus_text(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wikipedia_qwen_4b"):
     """
-    Load the Wikipedia text column by streaming from Hugging Face (avoiding downloading embeddings)
-    and cache it locally in a simple JSONL file for extremely fast random-access lookups.
+    Load the Wikipedia text column using Hugging Face datasets.
+    This uses the memory-mapped Arrow format cached locally (no streaming, no jsonl overhead).
     """
-    corpus_cache_file = os.path.join(local_dir, "corpus_text.jsonl")
-    if os.path.exists(corpus_cache_file):
-        logger.info(f"Loading cached corpus texts from {corpus_cache_file}...")
-        texts = []
-        with open(corpus_cache_file, 'r') as f:
-            for line in f:
-                data = json.loads(line)
-                texts.append(data.get('text', ''))
-        return texts, None
-
-    logger.info(f"Local corpus text cache not found. Downloading Parquet text column from HF repo '{repo_id}'...")
+    logger.info(f"Loading Wikipedia corpus text column from HF repo '{repo_id}'...")
     from datasets import load_dataset
-    # Load dataset with streaming=False, selecting only the 'text' column.
-    # This downloads the single base.parquet file all at once.
+    # load_dataset will load from local cache if already downloaded
     ds = load_dataset(repo_id, split="train", columns=["text"])
-    
-    texts = ds["text"]
-    logger.info("Caching texts locally to corpus_text.jsonl...")
-    with open(corpus_cache_file, 'w') as f:
-        for text in texts:
-            f.write(json.dumps({"text": text}) + "\n")
-                
-    logger.info(f"Successfully cached {len(texts)} documents to {corpus_cache_file}.")
-    return texts, None
+    return ds["text"], None
 
 
 def main():
