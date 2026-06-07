@@ -115,22 +115,28 @@ class VectorIndex:
     """
     Interface for DiskANN vector index.
     """
-    def __init__(self, diskann_path, dimension=2560):
+    def __init__(self, diskann_path, dimension=2560, num_threads=16, num_nodes_to_cache=10000):
         self.dimension = dimension
-        logger.info(f"Loading DiskANN index from: {diskann_path}")
-        self.index = dap.StaticDiskIndex(diskann_path)
+        logger.info(f"Loading DiskANN index from: {diskann_path} with {num_threads} threads, caching {num_nodes_to_cache} nodes")
+        self.index = dap.StaticDiskIndex(
+            index_directory=diskann_path,
+            num_threads=num_threads,
+            num_nodes_to_cache=num_nodes_to_cache
+        )
 
     def search(self, query_embeddings, k):
         """
         Search for top k nearest neighbors.
         query_embeddings: numpy array of shape (num_queries, dimension)
         """
-        indices = []
-        distances = []
-        for query in query_embeddings:
-            res = self.index.search(query, k_neighbors=k)
-            indices.append(res.neighbors)
-            distances.append(res.distances)
+        # Batch search is faster and handles multiple queries at once
+        indices, distances = self.index.batch_search(
+            queries=query_embeddings,
+            k_neighbors=k,
+            complexity=2 * k,  # typical complexity L
+            beam_width=2,
+            num_threads=16
+        )
         return np.array(distances), np.array(indices)
 
 
@@ -353,6 +359,8 @@ def main():
     
     parser.add_argument("--diskann_index_path", type=str, default=None, help="Path to DiskANN index files")
     parser.add_argument("--index_variant", type=str, default="index_32_100_320", help="Specific DiskANN index variant to download/use (e.g., index_32_100_320, index_32_100_640)")
+    parser.add_argument("--diskann_threads", type=int, default=16, help="Number of threads for DiskANN index search")
+    parser.add_argument("--diskann_nodes_to_cache", type=int, default=10000, help="Number of index nodes to cache in memory")
     
     parser.add_argument("--stage1_k", type=int, default=100, help="Number of candidate documents to retrieve in Stage 1")
     parser.add_argument("--topk", type=int, default=5, help="Number of diverse documents to output in the final set")
@@ -385,7 +393,12 @@ def main():
     if not args.diskann_index_path:
         # Guess default path inside the local folder using the variant
         args.diskann_index_path = os.path.join(args.local_wiki_dir, "diskann", args.index_variant)
-    vector_index = VectorIndex(diskann_path=args.diskann_index_path, dimension=2560)
+    vector_index = VectorIndex(
+        diskann_path=args.diskann_index_path, 
+        dimension=2560,
+        num_threads=args.diskann_threads,
+        num_nodes_to_cache=args.diskann_nodes_to_cache
+    )
 
     # 5. Initialize Query Embedder
     embedding_model = Qwen3Embedding(
