@@ -96,10 +96,10 @@ class Qwen3Embedding:
         else:
             # Using transformers directly
             embeddings_list = []
-            for i in range(0, len(formatted_texts), batch_size):
-                batch_texts = formatted_texts[i:i+batch_size]
+            
+            def _forward_pass(chunk_texts):
                 batch_dict = self.tokenizer(
-                    batch_texts, 
+                    chunk_texts, 
                     padding=True, 
                     truncation=True, 
                     max_length=8192, 
@@ -109,7 +109,34 @@ class Qwen3Embedding:
                 outputs = self.model(**batch_dict)
                 embeddings = self.last_token_pool(outputs.last_hidden_state, batch_dict['attention_mask'])
                 embeddings = F.normalize(embeddings, p=2, dim=1)
-                embeddings_list.append(embeddings.float().cpu().numpy())
+                return embeddings.float().cpu().numpy()
+
+            i = 0
+            curr_batch_size = batch_size
+            while i < len(formatted_texts):
+                chunk_texts = formatted_texts[i:i+curr_batch_size]
+                try:
+                    emb = _forward_pass(chunk_texts)
+                    embeddings_list.append(emb)
+                    i += curr_batch_size
+                except (torch.cuda.OutOfMemoryError if hasattr(torch.cuda, "OutOfMemoryError") else Exception, RuntimeError) as e:
+                    is_oom = False
+                    if hasattr(torch.cuda, "OutOfMemoryError") and isinstance(e, torch.cuda.OutOfMemoryError):
+                        is_oom = True
+                    elif "out of memory" in str(e).lower():
+                        is_oom = True
+                    
+                    if is_oom:
+                        torch.cuda.empty_cache()
+                        if curr_batch_size > 1:
+                            new_batch_size = curr_batch_size // 2
+                            logger.warning(f"CUDA Out of Memory. Reducing batch size from {curr_batch_size} to {new_batch_size} and retrying.")
+                            curr_batch_size = new_batch_size
+                        else:
+                            logger.error("CUDA Out of Memory even with batch_size=1. Cannot proceed.")
+                            raise e
+                    else:
+                        raise e
                 
             return np.concatenate(embeddings_list, axis=0)
 
@@ -356,6 +383,7 @@ def main():
     
     parser.add_argument("--quality_instruction", type=str, default="Given a query, retrieve relevant documents.", help="Instruction prompt for quality embedding")
     parser.add_argument("--perspective_instruction", type=str, default="Retrieve documents that support or discuss the perspective: {perspective}", help="Instruction template for perspective embedding")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size for generating candidate document/perspective embeddings")
     
     args = parser.parse_args()
 
@@ -436,7 +464,7 @@ def main():
         
         # Dynamically compute candidate document embeddings from candidate_texts
         # (This is fast for stage1_k=100 and avoids downloading the 10GB+ database embeddings)
-        candidate_embs = embedding_model.embed_texts(candidate_texts, is_query=False, batch_size=32)
+        candidate_embs = embedding_model.embed_texts(candidate_texts, is_query=False, batch_size=args.batch_size)
 
         # Step D: Compute document content similarity matrix S_doc_sim (N x N)
         S_doc_sim = candidate_embs @ candidate_embs.T
