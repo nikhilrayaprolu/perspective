@@ -115,13 +115,16 @@ class VectorIndex:
     """
     Interface for DiskANN vector index.
     """
-    def __init__(self, diskann_path, dimension=2560, num_threads=16, num_nodes_to_cache=10000):
+    def __init__(self, diskann_path, dimension=2560, distance_metric="cosine", num_threads=16, num_nodes_to_cache=10000):
         self.dimension = dimension
-        logger.info(f"Loading DiskANN index from: {diskann_path} with {num_threads} threads, caching {num_nodes_to_cache} nodes")
+        logger.info(f"Loading DiskANN index from: {diskann_path} (metric={distance_metric}, dim={dimension}) with {num_threads} threads, caching {num_nodes_to_cache} nodes")
         self.index = dap.StaticDiskIndex(
             index_directory=diskann_path,
             num_threads=num_threads,
-            num_nodes_to_cache=num_nodes_to_cache
+            num_nodes_to_cache=num_nodes_to_cache,
+            distance_metric=distance_metric,
+            vector_dtype=np.float32,
+            dimensions=dimension
         )
 
     def search(self, query_embeddings, k):
@@ -361,6 +364,7 @@ def main():
     parser.add_argument("--index_variant", type=str, default="index_32_100_320", help="Specific DiskANN index variant to download/use (e.g., index_32_100_320, index_32_100_640)")
     parser.add_argument("--diskann_threads", type=int, default=16, help="Number of threads for DiskANN index search")
     parser.add_argument("--diskann_nodes_to_cache", type=int, default=10000, help="Number of index nodes to cache in memory")
+    parser.add_argument("--diskann_metric", type=str, default="cosine", choices=["l2", "mips", "cosine"], help="Distance metric used for DiskANN index")
     
     parser.add_argument("--stage1_k", type=int, default=100, help="Number of candidate documents to retrieve in Stage 1")
     parser.add_argument("--topk", type=int, default=5, help="Number of diverse documents to output in the final set")
@@ -396,6 +400,7 @@ def main():
     vector_index = VectorIndex(
         diskann_path=args.diskann_index_path, 
         dimension=2560,
+        distance_metric=args.diskann_metric,
         num_threads=args.diskann_threads,
         num_nodes_to_cache=args.diskann_nodes_to_cache
     )
