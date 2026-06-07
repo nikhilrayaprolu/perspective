@@ -291,8 +291,17 @@ def load_queries(data_path_or_repo):
             })
         return queries
     except Exception as e:
-        raise FileNotFoundError(
-            f"Could not load queries from path or Hugging Face repo '{data_path_or_repo}'. Error: {e}"
+        if "Invalid pattern" in str(e) or "fsspec" in str(e):
+            logger.error("\n" + "="*80 + "\n"
+                         "Dependency Version Conflict Detected!\n"
+                         "This is a known issue caused by an incompatible version of the 'fsspec' library.\n"
+                         "To fix this, please run the following command in your Colab notebook or terminal:\n\n"
+                         "    !pip install -U datasets huggingface_hub fsspec\n\n"
+                         "And then restart your Python runtime (Runtime -> Restart session).\n" + "="*80 + "\n")
+        raise RuntimeError(
+            f"Could not load queries from path or Hugging Face repo '{data_path_or_repo}'.\n"
+            f"Original Error: {e}\n"
+            "If this is a dataset/fsspec version conflict, try running: pip install -U datasets huggingface_hub fsspec"
         )
 
 
@@ -316,7 +325,7 @@ def get_local_corpus_text(repo_id="maknee/wikipedia_qwen_4b", local_dir="data/wi
     logger.info(f"Local corpus text cache not found. Streaming text and title columns from HF repo '{repo_id}' (this avoids downloading massive embedding files)...")
     from datasets import load_dataset
     # Load dataset in streaming mode, selecting only 'text' and 'title' columns
-    streamed_ds = load_dataset(repo_id, split="base", columns=["text", "title"], streaming=True)
+    streamed_ds = load_dataset(repo_id, split="train", columns=["text", "title"], streaming=True)
     
     texts = []
     titles = []

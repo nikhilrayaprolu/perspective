@@ -252,8 +252,17 @@ def load_queries(data_path_or_repo):
             })
         return queries
     except Exception as e:
-        raise FileNotFoundError(
-            f"Could not load queries from path or Hugging Face repo '{data_path_or_repo}'. Error: {e}"
+        if "Invalid pattern" in str(e) or "fsspec" in str(e):
+            logger.error("\n" + "="*80 + "\n"
+                         "Dependency Version Conflict Detected!\n"
+                         "This is a known issue caused by an incompatible version of the 'fsspec' library.\n"
+                         "To fix this, please run the following command in your Colab notebook or terminal:\n\n"
+                         "    !pip install -U datasets huggingface_hub fsspec\n\n"
+                         "And then restart your Python runtime (Runtime -> Restart session).\n" + "="*80 + "\n")
+        raise RuntimeError(
+            f"Could not load queries from path or Hugging Face repo '{data_path_or_repo}'.\n"
+            f"Original Error: {e}\n"
+            "If this is a dataset/fsspec version conflict, try running: pip install -U datasets huggingface_hub fsspec"
         )
 
 
