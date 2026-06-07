@@ -344,7 +344,7 @@ def main():
     
     parser.add_argument("--diskann_index_path", type=str, default=None, help="Path to DiskANN index files")
     parser.add_argument("--index_variant", type=str, default="index_32_100_320", help="Specific DiskANN index variant to download/use (e.g., index_32_100_320, index_32_100_640)")
-    parser.add_argument("--diskann_threads", type=int, default=16, help="Number of threads for DiskANN index search")
+    parser.add_argument("--diskann_threads", type=int, default=os.cpu_count() or 2, help="Number of threads for DiskANN index search")
     parser.add_argument("--diskann_nodes_to_cache", type=int, default=10000, help="Number of index nodes to cache in memory")
     parser.add_argument("--diskann_metric", type=str, default="l2", choices=["l2", "mips", "cosine"], help="Distance metric used for DiskANN index")
     

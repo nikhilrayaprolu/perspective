@@ -116,7 +116,7 @@ python reranking/dpp_rerank_qwen.py \
 | `--theta` | float | `2.0` | **Relevance scale (Inverse Temperature)**. Higher values increase the importance of the core query relevance score. Lower values decrease it. |
 | `--lambda_val`| float | `0.5` | **Stance diversity weight**. `0.0` uses pure semantic document similarity. `1.0` uses pure perspective-coverage similarity. |
 | `--mode` | str | `greedy` | **Selection strategy**. `greedy` uses deterministic Cholesky-based greedy MAP optimization. `sample` uses probabilistic k-DPP sampling. |
-| `--diskann_threads`| int | `16` | Number of threads for the native DiskANN search operations. |
+| `--diskann_threads`| int | `CPU count (or 2)` | Number of threads for the native DiskANN search operations. |
 | `--diskann_nodes_to_cache`| int | `10000` | Number of index nodes cached in memory to accelerate search. |
 | `--diskann_metric`| str | `l2` | Distance metric used by the index (one of: `l2`, `mips`, `cosine`). |
 
