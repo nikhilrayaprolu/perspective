@@ -455,10 +455,15 @@ def main():
         query_quality_emb = embedding_model.embed_texts([question], is_query=True, instruction=args.quality_instruction, batch_size=1)
 
         # Step B: Stage 1 Search (Retrieve Top-N candidates)
-        # Vector index search returns distances (cosine similarities if normalized) and indices
+        # Vector index search returns distances (L2 distances) and indices
         distances, indices = vector_index.search(query_quality_emb, args.stage1_k)
         candidate_indices = indices[0]
-        quality_scores = distances[0]
+        # Since DiskANN is configured with L2 metric, distances are squared L2 distances (smaller is better).
+        # We convert them to cosine similarities (larger is better) for correct DPP quality scoring.
+        if args.diskann_metric == "l2":
+            quality_scores = 1.0 - distances[0] / 2.0
+        else:
+            quality_scores = distances[0]
 
         # Step C: Extract candidate text, title, and pre-computed embeddings
         candidate_texts = [corpus_texts[int(i)] for i in candidate_indices]
