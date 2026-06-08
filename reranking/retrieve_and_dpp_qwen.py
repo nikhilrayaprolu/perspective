@@ -384,6 +384,7 @@ def main():
     parser.add_argument("--quality_instruction", type=str, default="Given a query, retrieve relevant documents.", help="Instruction prompt for quality embedding")
     parser.add_argument("--perspective_instruction", type=str, default="Retrieve documents that support or discuss the perspective: {perspective}", help="Instruction template for perspective embedding")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size for generating candidate document/perspective embeddings")
+    parser.add_argument("--retrieval_only", action="store_true", help="Only run the retrieval stage, bypassing the DPP reranking phase entirely")
     
     args = parser.parse_args()
 
@@ -462,6 +463,24 @@ def main():
         # Step C: Extract candidate text, title, and pre-computed embeddings
         candidate_texts = [corpus_texts[int(i)] for i in candidate_indices]
         candidate_titles = [corpus_titles[int(i)] for i in candidate_indices] if corpus_titles else [f"Doc_{i}" for i in candidate_indices]
+        
+        k = min(args.topk, args.stage1_k)
+
+        if args.retrieval_only:
+            retrieval_only_ctxs = []
+            for rank_idx in range(k):
+                global_idx = candidate_indices[rank_idx]
+                retrieval_only_ctxs.append({
+                    "title": str(candidate_titles[rank_idx]),
+                    "text": str(candidate_texts[rank_idx]),
+                    "score": float(quality_scores[rank_idx]),
+                    "dpp_rank": rank_idx + 1,
+                    "global_index": int(global_idx)
+                })
+            inst["ctxs"] = retrieval_only_ctxs
+            reranked_results.append(inst)
+            retrieval_only_results.append(inst)
+            continue
         
         # Dynamically compute candidate document embeddings from candidate_texts
         # (This is fast for stage1_k=100 and avoids downloading the 10GB+ database embeddings)

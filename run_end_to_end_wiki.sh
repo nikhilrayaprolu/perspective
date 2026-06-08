@@ -46,7 +46,9 @@ do
         --topk ${TOPK} \
         --theta ${THETA} \
         --lambda_val ${LAMBDA_VAL} \
-        --device "${DEVICE}"
+        --device "${DEVICE}" \
+        "$@"
+        
         
     echo "Output saved to ${OUTPUT_FILE}."
     
