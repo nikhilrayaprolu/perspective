@@ -50,10 +50,9 @@ do
         
     echo "Output saved to ${OUTPUT_FILE}."
     
-    # Run the BERDS automatic evaluator
+    # Run the BERDS automatic evaluator on DPP-reranked output
     EVAL_OUTPUT="${OUTPUT_DIR}/${DATA_NAME}_dpp_wiki.mistralpred"
-    echo "Running BERDS automatic evaluation..."
-    
+    echo "Running BERDS automatic evaluation on DPP-reranked output..."
     PYTHONPATH=. python Eval/eval_vllm.py \
         --data "${OUTPUT_FILE}" \
         --output_file "${EVAL_OUTPUT}" \
@@ -61,8 +60,20 @@ do
         --model timchen0618/Mistral_BERDS_evaluator_full \
         --model_type mistral \
         --topk ${TOPK}
-        
-    echo "Evaluation complete. Results saved in ${EVAL_OUTPUT}."
+    echo "DPP evaluation complete. Results saved in ${EVAL_OUTPUT}."
+
+    # Run the BERDS automatic evaluator on retrieval-only output
+    RETRIEVAL_ONLY_FILE="${OUTPUT_FILE%.jsonl}_retrieval_only.jsonl"
+    EVAL_RETRIEVAL_OUTPUT="${OUTPUT_DIR}/${DATA_NAME}_retrieval_only_wiki.mistralpred"
+    echo "Running BERDS automatic evaluation on raw Retrieval-Only output..."
+    PYTHONPATH=. python Eval/eval_vllm.py \
+        --data "${RETRIEVAL_ONLY_FILE}" \
+        --output_file "${EVAL_RETRIEVAL_OUTPUT}" \
+        --instructions Eval/instructions_chat.txt \
+        --model timchen0618/Mistral_BERDS_evaluator_full \
+        --model_type mistral \
+        --topk ${TOPK}
+    echo "Retrieval-only evaluation complete. Results saved in ${EVAL_RETRIEVAL_OUTPUT}."
 done
 
 echo "=== End-to-End Pipeline Tasks Finished ==="

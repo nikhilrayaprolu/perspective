@@ -443,6 +443,7 @@ def main():
     )
 
     reranked_results = []
+    retrieval_only_results = []
 
     # 6. Retrieve and DPP rerank
     for idx, inst in enumerate(tqdm(queries_data, desc="Retrieving and Reranking")):
@@ -526,7 +527,23 @@ def main():
         inst["ctxs"] = new_ctxs
         reranked_results.append(inst)
 
-    # Save output file
+        # Step J: Build the retrieval-only 'ctxs' output list (raw top-k retrieved before DPP)
+        retrieval_only_ctxs = []
+        for rank_idx in range(k):
+            global_idx = candidate_indices[rank_idx]
+            retrieval_only_ctxs.append({
+                "title": str(candidate_titles[rank_idx]),
+                "text": str(candidate_texts[rank_idx]),
+                "score": float(quality_scores[rank_idx]),
+                "dpp_rank": rank_idx + 1,
+                "global_index": int(global_idx)
+            })
+        
+        inst_retrieval = {key: val for key, val in inst.items() if key != "ctxs"}
+        inst_retrieval["ctxs"] = retrieval_only_ctxs
+        retrieval_only_results.append(inst_retrieval)
+
+    # Save output files
     logger.info(f"Writing retrieved & reranked results to '{args.output_file}'...")
     output_dir = os.path.dirname(args.output_file)
     if output_dir and not os.path.exists(output_dir):
@@ -534,6 +551,12 @@ def main():
         
     with open(args.output_file, 'w') as f:
         for inst in reranked_results:
+            f.write(json.dumps(inst) + '\n')
+
+    retrieval_output_file = args.output_file.replace(".jsonl", "_retrieval_only.jsonl")
+    logger.info(f"Writing retrieval-only results to '{retrieval_output_file}'...")
+    with open(retrieval_output_file, 'w') as f:
+        for inst in retrieval_only_results:
             f.write(json.dumps(inst) + '\n')
             
     logger.info("Done! End-to-end pipeline execution finished.")
